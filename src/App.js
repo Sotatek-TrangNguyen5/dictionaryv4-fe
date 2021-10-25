@@ -1,24 +1,17 @@
-import logo from './logo.svg';
 import './App.css';
 import {
   BrowserRouter as Router,
-  Switch,
   Route,
-  Link
 } from "react-router-dom";
-import Transaction from "./pages/Dashboard/example";
+import DashBoard from "./pages/Dashboard/index";
 
 function App() {
   return (
       <Router>
-        <Route component={Transaction} path={'/test'} ></Route>
+        <Route component={DashBoard} path={'/'} ></Route>
       </Router>
 
   );
-}
-
-function TEST() {
-  return (<div>helloworld</div>)
 }
 
 export default App;
