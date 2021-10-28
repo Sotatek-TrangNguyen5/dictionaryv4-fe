@@ -1,216 +1,303 @@
 import * as React from 'react';
-import { Button, FormControl, Modal } from 'react-bootstrap';
+import {Button, FormControl, Modal} from 'react-bootstrap';
+import ReactAudioPlayer from 'react-audio-player';
 import axios from 'axios';
-import { useState } from 'react';
-import Popup from 'components/Popup';
-import styled, { css } from 'styled-components';
-import { PencilIcon, PlusCircleIcon } from '@heroicons/react/outline';
-
-const Wrapper = styled.div`
-  display: flex;
-`;
-
-const SearchSide = styled.div`
-  width: 30%;
-  height: calc(100vh - 160px);
-  background-color: #eee;
-`;
-
-const DefinitionSide = styled.div`
-  position: relative;
-  width: 70%;
-  height: calc(100vh - 160px);
-`;
-
-const Header = styled.div`
-  height: 100px;
-  padding: 8px;
-  color: #fff;
-`;
-
-const SearchHeader = styled(Header)`
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  background-color: #033567;
-  text-align: center;
-`;
-
-const DefinitionHeader = styled(Header)`
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  background-color: #0a4580;
-`;
-
-const DefinitionBody = styled.div`
-  position: relative;
-  padding: 8px;
-`;
-
-const UpdateWordBar = styled.div`
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  padding: 8px;
-  text-align: right;
-  width: 100%;
-`;
-
-const SearchForm = styled.div`
-  padding: 8px;
-`;
-
-const SearchBody = styled.div``;
-
-const SearchRecommend = styled.div`
-  max-height: 432px;
-  overflow: auto;
-`;
-
-const AppTitle = styled.h1`
-  font-size: 14px;
-`;
-
-const Title = styled.h2`
-  font-size: 20px;
-`;
-
-const Icon = css`
-  width: 18px;
-  margin-right: 4px;
-`;
-
-const AddIcon = styled(PlusCircleIcon)`
-  ${Icon}
-`;
-
-const EditIcon = styled(PencilIcon)`
-  ${Icon}
-`;
-
-const TransperentButton = styled(Button)`
-  background: transparent;
-  outline: none;
-  border: none;
-
-  &:hover,
-  &:focus {
-    background: transparent;
-    outline: none;
-    border: none;
-    box-shadow: none;
-  }
-`;
-
-const EditButton = styled(TransperentButton)`
-  color: #333;
-
-  &:hover,
-  &:focus {
-    color: #333;
-  }
-`;
-
-const SearchResult = styled.div`
-  padding: 8px 22px;
-
-  &:hover {
-    color: #fff;
-    background-color: #bc0103;
-    cursor: pointer;
-  }
-`;
+import {useEffect, useRef, useState} from 'react';
+import {
+  AppTitle, DefinitionBody,
+  DefinitionHeader,
+  DefinitionSide, EditButton, EditIcon,
+  SearchBody,
+  SearchForm,
+  SearchHeader,
+  SearchSide,
+  Title, TransperentButton, UpdateWordBar,
+  Wrapper, AddIcon, DeleteIcon, SearchResult, SearchRecommend, Input
+} from "./style";
 
 export const DashBoard = () => {
   const [openModal, setOpenModal] = useState(false);
+  const [isEditWord, setIsEditWord] = useState(false);
+  const [submit, setSubmit] = useState(false);
+  const [error, setError] = useState(false);
+  const [voice, setVoice] = useState('banmaiace');
+  const [speachVoice, setSpeachVoice] = useState('');
+  const [wordTarget, setWordTarget] = useState("");
+  const [wordExplain, setWordExplain] = useState("");
+  const [pronounce, setPronounce] = useState("");
   const [word, setWord] = useState();
+  const [history, setHistory] = useState([]);
+
+  const getVoice = async () => {
+    console.log('voice', voice)
+    var querystring = require('querystring');
+    var data = querystring.stringify({
+      '': word ? word?.wordTarget : "trang",
+    });
+    let formData = new FormData();
+    formData.append('data', 'trang kieu nguyen');
+
+    const res = await axios.post('https://api.fpt.ai/hmi/tts/v5', data, {
+      headers: {
+        'api-key': '6D3FBqYomAZhlKKNAx1pe3TIq6gVSNMR',
+        'speed': '',
+        'voice': voice,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      }
+    })
+    setSpeachVoice(res?.data?.async);
+  };
 
   const searchWord = async (wordTarget) => {
     let res = await axios.get('http://localhost:8080/words/findByWorldTarget', {
-      params: { wordTarget: wordTarget },
+      params: {wordTarget: wordTarget},
     });
-    // let res = await axios.get('http://localhost:8080/words/findByWorldTarget?wordTarget=computer');
     let data = res.data;
-    console.log(data);
     return data;
   };
 
-  const handleOpenModal = () => setOpenModal(true);
-  const handleCloseModal = () => setOpenModal(false);
+  const deleteWord = async (id) => {
+    return await axios.delete(`http://localhost:8080/words/${id}`).then(() =>
+        setWord(null)
+    )
+
+  };
+
+  const checkData = async () => {
+    const CheckWordTarget = await searchWord(wordTarget);
+    if (CheckWordTarget.length !== 0) setError(true);
+    if (
+        pronounce === "" ||
+        wordExplain === "" ||
+        wordTarget === "" || CheckWordTarget.length !== 0
+    )
+      return null;
+
+    return {
+      wordTarget: wordTarget,
+      wordExplain: wordExplain,
+      pronounce: pronounce,
+    }
+  }
+
+  const creatnewWord = async () => {
+    setSubmit(true);
+    const data = await checkData();
+    console.log('data', data);
+    if (data) {
+      const boby = {
+        wordTarget: wordTarget,
+        wordExplain: wordExplain,
+        pronounce: pronounce,
+      }
+      console.log(11111111)
+      let res = await axios.post('http://localhost:8080/words', boby).then(() => {
+        // eslint-disable-next-line no-unused-expressions
+        setPronounce(""),
+            setWordExplain(""),
+            setWordTarget(""),
+            setOpenModal(false),
+            setSubmit(false);
+      })
+      setError(true);
+    }
+  }
+
+  const changeEdit = async () => {
+    const boby = {
+      id: word.id,
+      wordTarget: wordTarget,
+      wordExplain: wordExplain,
+      pronounce: pronounce,
+    }
+    console.log('boby', boby)
+    let res = await axios.post('http://localhost:8080/words', boby).then(() => {
+      // eslint-disable-next-line no-unused-expressions
+      setPronounce(""),
+          setWordExplain(""),
+          setWordTarget(""),
+          setOpenModal(false),
+          setSubmit(false);
+      setIsEditWord(false);
+      setWord(boby);
+    })
+    setError(true);
+  }
+
+  const editWord = async () => {
+    setWordTarget(word.wordTarget);
+    setWordExplain(word.wordExplain);
+    setPronounce(word.pronounce);
+
+  };
 
   const handleSearch = async (wordTarget) => {
     const searWord = await searchWord(wordTarget);
     setWord(searWord);
   };
 
-  const addNewWord = async () => {};
+  console.log('error', error)
+  console.log('subomit', submit)
+  console.log('isEditWord', isEditWord)
+
+  useEffect(() => {
+    getVoice();
+  }, [voice])
+  console.log('speachVoice', speachVoice)
 
   const renderResult = () => {
+    const a = ['youthful','zoom','zoo','yes','red','blue','green','pink','tiger','elephant', 'monkey'];
     let result = [];
-    for (let i = 1; i < 15; i++) {
-      result.push(<SearchResult>hello</SearchResult>);
-    }
+    a.map((i)=> result.push(<span style={{margin:'10px'}}>{i}</span>))
     return result;
   };
 
   return (
-    <Wrapper>
-      <SearchSide>
-        <SearchHeader>
-          <AppTitle>
-            Advanced English <strong>Dictionary</strong>
-          </AppTitle>
-          <Title>Search</Title>
-        </SearchHeader>
-        <SearchBody>
-          <div>
-            <SearchForm>
-              <FormControl
-                maxLength={100}
-                id="project"
-                value={word?.wordTarget}
-                onChange={(e) => {
-                  handleSearch(e.target.value);
-                }}
-                aria-describedby="inputGroup-sizing-sm"
-              />
-            </SearchForm>
-            <SearchRecommend>{renderResult()}</SearchRecommend>
-          </div>
-        </SearchBody>
-      </SearchSide>
-      <DefinitionSide>
-        <DefinitionHeader>
-          <Title>Definition</Title>
-          <TransperentButton onClick={() => setOpenModal(true)}>
-            <AddIcon />
-            <span>Add</span>
-          </TransperentButton>
-        </DefinitionHeader>
-        <DefinitionBody>Definition here!</DefinitionBody>
-        <UpdateWordBar>
-          <EditButton onClick={() => setOpenModal(true)}>
-            <EditIcon />
-            <span>Edit</span>
-          </EditButton>
-        </UpdateWordBar>
-        <Modal centered show={openModal} onHide={() => setOpenModal(false)}>
-          <Modal.Header closeButton>
-            <Modal.Title>Add/edit new word</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>Woohoo, you're reading this text in a modal!</Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={handleCloseModal}>
-              Close
-            </Button>
-            <Button variant="primary" onClick={handleCloseModal}>
-              Save Changes
-            </Button>
-          </Modal.Footer>
-        </Modal>
-      </DefinitionSide>
-    </Wrapper>
+      <Wrapper>
+        <SearchSide>
+          <SearchHeader>
+            <AppTitle>
+              Advanced English <strong>Dictionary</strong>
+            </AppTitle>
+            <Title>Search</Title>
+          </SearchHeader>
+          <SearchBody>
+            <div>
+              <SearchForm>
+                <FormControl
+                    maxLength={100}
+                    id="project"
+                    value={word?.wordTarget}
+                    onChange={(e) => {
+                      handleSearch(e.target.value);
+                    }}
+                    aria-describedby="inputGroup-sizing-sm"
+                />
+              </SearchForm>
+              <SearchRecommend>
+                <span style={{fontSize: '20px', color: '#033567'}} >search history:</span><br/> <br/><br/>
+                <div style={{display: 'flex', maxWidth: '300px'}}>
+                {renderResult()}
+                </div>
+              </SearchRecommend>
+            </div>
+          </SearchBody>
+        </SearchSide>
+        <DefinitionSide>
+          <DefinitionHeader>
+            <Title>Definition</Title>
+            {/* eslint-disable-next-line no-unused-expressions */}
+            <div>
+              <TransperentButton onClick={() => setOpenModal(true)}>
+                <AddIcon/>
+                <span>Add</span>
+              </TransperentButton>
+              <div>
+                <select style={{border: '2px solid white', borderRadius: '5px', color: '#0a4580'}}
+                        onChange={(e) => setVoice(e.target.value)}>
+                  <option hidden>chooose voice</option>
+                  <option value={'banmaiace'}>north women</option>
+                  <option value={'lannhi'}>south women</option>
+                  <option value={'minhquangace'}>north men</option>
+                </select>
+              </div>
+            </div>
+          </DefinitionHeader>
+          {word ?
+              <div style={{margin: '60px'}}>
+                <DefinitionBody>
+                  <div> *{word?.wordTarget}</div> <br/>
+                  <div> -/{word?.pronounce}/</div> <br/>
+                  <div> - {word?.wordExplain}</div>
+                </DefinitionBody>
+                <UpdateWordBar>
+                  <ReactAudioPlayer
+                      src={speachVoice}
+                      autoPlay
+                      controls
+                  />
+                  <EditButton onClick={() => {
+                    setIsEditWord(true);
+                    setOpenModal(true);
+                    editWord()
+                  }}
+                  >
+                    <EditIcon/>
+                    <span>Edit</span>
+                  </EditButton>
+
+                  <EditButton onClick={() => deleteWord(word?.id)}>
+                    <DeleteIcon/>
+                    <span>Delete</span>
+                  </EditButton>
+                </UpdateWordBar></div> : null}
+          <Modal centered show={openModal} onHide={() => setOpenModal(false)}>
+            <Modal.Header closeButton>
+              <Modal.Title>ADD-EDIT WORD</Modal.Title>
+            </Modal.Header>
+            <br/>
+            <br/>
+            <Modal.Body>
+              <div className="mb-12">
+                <label>
+                  Word Target<span className="text-red-600">*</span>{" "}<br/>
+                </label>
+                <br/>
+                <Input
+                    value={wordTarget}
+                    onChange={(e) => {
+                      e.target.value.trim() ? setWordTarget(e.target.value) : setWordTarget("")
+                    }}
+                /><br/><br/>
+                {submit && wordTarget === "" ? (
+                    <small>This field is required.</small>
+                ) : null}
+              </div>
+              <div className="mb-12">
+                <label>
+                  Pronounce<span className="text-red-600">*</span>{" "}<br/>
+                </label>
+                <br/>
+                <Input
+                    value={pronounce}
+                    onChange={(e) => {
+                      e.target.value.trim() ? setPronounce(e.target.value) : setPronounce("")
+                    }}
+                /><br/><br/>
+                {submit && pronounce === "" ? (
+                    <small>This field is required.</small>
+                ) : null}
+              </div>
+              <div className="mb-12">
+                <label>
+                  Word Explain<span className="text-red-600">*</span>{" "}<br/>
+                </label>
+                <br/>
+                <Input
+                    value={wordExplain}
+                    onChange={(e) => {
+                      e.target.value.trim() ? setWordExplain(e.target.value) : setWordExplain("")
+                    }}
+                /><br/>
+                {submit && wordExplain === "" ? (
+                    <small>This field is required.</small>
+                ) : null}
+              </div>
+            </Modal.Body>
+            {error && submit ? (
+                <small style={{color: 'red',marginLeft: '180px'}}>this word already exist</small>
+            ) : null}
+            <Modal.Footer>
+              <Button variant="secondary">
+                Close
+              </Button>
+              <Button variant="primary" onClick={isEditWord ? changeEdit : creatnewWord}>
+                Save Changes
+              </Button>
+            </Modal.Footer>
+          </Modal>
+        </DefinitionSide>
+      </Wrapper>
   );
 };
 
